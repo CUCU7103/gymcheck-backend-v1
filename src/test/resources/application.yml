@@ -1,0 +1,39 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+oauth:
+  google:
+    client-id: test-client-id
+    client-secret: test-client-secret
+    redirect-uri: http://localhost/callback
+    token-uri: http://localhost/token
+    user-info-uri: http://localhost/userinfo
+  kakao:
+    client-id: test-kakao-id
+    client-secret: test-kakao-secret
+    redirect-uri: http://localhost/kakao/callback
+    token-uri: http://localhost/kakao/token
+    user-info-uri: http://localhost/kakao/userinfo
+
+jwt:
+  secret: test-secret-key-test-secret-key-test-secret-key-test-secret-key
+  access-token-expiration: 1800000
+  refresh-token-expiration: 2592000000
+
+firebase:
+  credentials-path: disabled
+  project-id: test-project
+  enabled: false
