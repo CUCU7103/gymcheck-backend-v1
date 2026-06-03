@@ -8,4 +8,5 @@ data class StreakResponse(
     val currentStreak: Int,
     val longestStreak: Int,
     val currentPeriodAchieved: Boolean,
+    val isGoalAchievedToday: Boolean = currentPeriodAchieved,
 )

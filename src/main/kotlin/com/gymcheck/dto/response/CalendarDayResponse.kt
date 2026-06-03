@@ -5,4 +5,5 @@ import java.time.LocalDate
 data class CalendarDayResponse(
     val date: LocalDate,
     val workoutCount: Int,
+    val hasWorkout: Boolean = workoutCount > 0,
 )

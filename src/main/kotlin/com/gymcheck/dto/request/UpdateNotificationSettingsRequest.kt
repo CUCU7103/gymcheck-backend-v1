@@ -1,11 +1,12 @@
 package com.gymcheck.dto.request
 
-import jakarta.validation.constraints.NotNull
 import java.time.LocalTime
 
 data class UpdateNotificationSettingsRequest(
-    @field:NotNull
-    val enabled: Boolean,
+    val enabled: Boolean? = null,
     val notifyTime: LocalTime? = null,
     val timezone: String? = null,
+    val isEnabled: Boolean? = null,
+    val notificationHour: Int? = null,
+    val notificationMinute: Int? = null,
 )
