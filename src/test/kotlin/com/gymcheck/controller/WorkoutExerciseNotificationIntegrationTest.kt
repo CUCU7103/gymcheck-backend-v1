@@ -1,6 +1,8 @@
 package com.gymcheck.controller
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.gymcheck.dto.response.ExerciseTypeResponse
 import com.gymcheck.dto.response.NotificationSettingsResponse
 import com.gymcheck.dto.response.TokenResponse
@@ -11,30 +13,22 @@ import com.gymcheck.repository.NotificationSettingRepository
 import com.gymcheck.repository.UserRepository
 import com.gymcheck.repository.WorkoutLogRepository
 import com.gymcheck.domain.user.SocialProvider
-import com.github.tomakehurst.wiremock.WireMockServer
-import com.github.tomakehurst.wiremock.client.WireMock.get
-import com.github.tomakehurst.wiremock.client.WireMock.okJson
-import com.github.tomakehurst.wiremock.client.WireMock.post
-import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.`when`
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
-import java.time.LocalDate
 
 @SpringBootTest(
     properties = [
@@ -47,23 +41,7 @@ import java.time.LocalDate
     ],
 )
 @AutoConfigureMockMvc
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class WorkoutExerciseNotificationIntegrationTest {
-
-    companion object {
-        private val googleWireMockServer = WireMockServer(options().dynamicPort())
-
-        init {
-            googleWireMockServer.start()
-        }
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun registerProperties(registry: DynamicPropertyRegistry) {
-            registry.add("oauth.google.token-uri") { "${googleWireMockServer.baseUrl()}/token" }
-            registry.add("oauth.google.user-info-uri") { "${googleWireMockServer.baseUrl()}/userinfo" }
-        }
-    }
 
     @Autowired lateinit var mockMvc: MockMvc
     @Autowired lateinit var objectMapper: ObjectMapper
@@ -74,6 +52,8 @@ class WorkoutExerciseNotificationIntegrationTest {
     @Autowired lateinit var fcmTokenRepository: FcmTokenRepository
     @Autowired lateinit var notificationSettingRepository: NotificationSettingRepository
 
+    @MockBean lateinit var googleIdTokenVerifier: GoogleIdTokenVerifier
+
     @BeforeEach
     fun cleanUp() {
         notificationSettingRepository.deleteAll()
@@ -82,17 +62,11 @@ class WorkoutExerciseNotificationIntegrationTest {
         exerciseTypeRepository.deleteAll()
         refreshTokenRepository.deleteAll()
         userRepository.deleteAll()
-        googleWireMockServer.resetAll()
-    }
-
-    @AfterAll
-    fun tearDown() {
-        googleWireMockServer.stop()
     }
 
     @Test
     fun `exercise workout and notification flows work together`() {
-        stubGoogleLogin()
+        stubGoogleIdToken("google-id-token", "google-sub-1", "g@example.com", "Google User")
         val token = login().accessToken
 
         val createdExercise = mockMvc.post("/exercise-types") {
@@ -123,6 +97,7 @@ class WorkoutExerciseNotificationIntegrationTest {
             param("logDate", "2026-05-31")
         }.andExpect {
             status { isOk() }
+            jsonPath("$[0].exerciseType.name") { value("복싱") }
         }.andReturn().response.contentAsByteArray.let {
             objectMapper.readValue(it, Array<WorkoutLogResponse>::class.java).toList()
         }
@@ -158,11 +133,30 @@ class WorkoutExerciseNotificationIntegrationTest {
             header(HttpHeaders.AUTHORIZATION, "Bearer $token")
         }.andExpect {
             status { isOk() }
+            jsonPath("$.isEnabled") { value(true) }
+            jsonPath("$.notificationHour") { value(20) }
+            jsonPath("$.notificationMinute") { value(30) }
         }.andReturn().response.contentAsByteArray.let {
             objectMapper.readValue(it, NotificationSettingsResponse::class.java)
         }
         assertThat(settings.enabled).isTrue()
+        assertThat(settings.isEnabled).isTrue()
+        assertThat(settings.notificationHour).isEqualTo(20)
+        assertThat(settings.notificationMinute).isEqualTo(30)
         assertThat(settings.timezone).isEqualTo("Asia/Seoul")
+
+        mockMvc.put("/notifications/settings") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"isEnabled":false,"notificationHour":7,"notificationMinute":45}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.enabled") { value(false) }
+            jsonPath("$.isEnabled") { value(false) }
+            jsonPath("$.notifyTime") { value("07:45:00") }
+            jsonPath("$.notificationHour") { value(7) }
+            jsonPath("$.notificationMinute") { value(45) }
+        }
 
         mockMvc.delete("/notifications/tokens") {
             header(HttpHeaders.AUTHORIZATION, "Bearer $token")
@@ -179,7 +173,7 @@ class WorkoutExerciseNotificationIntegrationTest {
     private fun login(): TokenResponse {
         val result = mockMvc.post("/auth/oauth/google") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"code":"google-auth-code"}"""
+            content = """{"idToken":"google-id-token"}"""
         }.andExpect {
             status { isOk() }
         }.andReturn()
@@ -187,26 +181,16 @@ class WorkoutExerciseNotificationIntegrationTest {
         return objectMapper.readValue(result.response.contentAsByteArray, TokenResponse::class.java)
     }
 
-    private fun stubGoogleLogin() {
-        googleWireMockServer.stubFor(
-            post(urlEqualTo("/token"))
-                .willReturn(
-                    okJson(
-                        """
-                        {"access_token":"google-access","token_type":"Bearer","expires_in":3600}
-                        """.trimIndent(),
-                    ),
-                ),
-        )
-        googleWireMockServer.stubFor(
-            get(urlEqualTo("/userinfo"))
-                .willReturn(
-                    okJson(
-                        """
-                        {"sub":"google-sub-1","email":"g@example.com","name":"Google User"}
-                        """.trimIndent(),
-                    ),
-                ),
-        )
+    private fun stubGoogleIdToken(idTokenString: String, sub: String, email: String, name: String) {
+        val payload = mock(GoogleIdToken.Payload::class.java)
+        `when`(payload.subject).thenReturn(sub)
+        `when`(payload["email"]).thenReturn(email)
+        `when`(payload["name"]).thenReturn(name)
+
+        val idToken = mock(GoogleIdToken::class.java)
+        `when`(idToken.payload).thenReturn(payload)
+
+        `when`(googleIdTokenVerifier.verify(idTokenString)).thenReturn(idToken)
     }
+
 }

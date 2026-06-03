@@ -1,14 +1,16 @@
 package com.gymcheck.controller.auth
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.gymcheck.dto.response.TokenResponse
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.gymcheck.domain.user.SocialProvider
+import com.gymcheck.dto.response.TokenResponse
 import com.gymcheck.repository.RefreshTokenRepository
 import com.gymcheck.repository.UserRepository
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock.get
 import com.github.tomakehurst.wiremock.client.WireMock.okJson
-import com.github.tomakehurst.wiremock.client.WireMock.post
+import com.github.tomakehurst.wiremock.client.WireMock.post as wireMockPost
 import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import org.assertj.core.api.Assertions.assertThat
@@ -16,9 +18,12 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.`when`
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.test.context.DynamicPropertyRegistry
@@ -42,23 +47,22 @@ import org.springframework.test.web.servlet.post
 class AuthControllerIntegrationTest {
 
     companion object {
-        private val googleWireMockServer = WireMockServer(options().dynamicPort())
         private val kakaoWireMockServer = WireMockServer(options().dynamicPort())
 
         init {
-            googleWireMockServer.start()
             kakaoWireMockServer.start()
         }
 
         @JvmStatic
         @DynamicPropertySource
         fun registerProperties(registry: DynamicPropertyRegistry) {
-            registry.add("oauth.google.token-uri") { "${googleWireMockServer.baseUrl()}/token" }
-            registry.add("oauth.google.user-info-uri") { "${googleWireMockServer.baseUrl()}/userinfo" }
             registry.add("oauth.kakao.token-uri") { "${kakaoWireMockServer.baseUrl()}/oauth/token" }
             registry.add("oauth.kakao.user-info-uri") { "${kakaoWireMockServer.baseUrl()}/v2/user/me" }
         }
     }
+
+    @MockBean
+    lateinit var googleIdTokenVerifier: GoogleIdTokenVerifier
 
     @Autowired
     lateinit var mockMvc: MockMvc
@@ -76,21 +80,19 @@ class AuthControllerIntegrationTest {
     fun cleanUp() {
         refreshTokenRepository.deleteAll()
         userRepository.deleteAll()
-        googleWireMockServer.resetAll()
         kakaoWireMockServer.resetAll()
     }
 
     @AfterAll
     fun tearDown() {
-        googleWireMockServer.stop()
         kakaoWireMockServer.stop()
     }
 
     @Test
     fun `google login creates user and stores refresh token`() {
-        stubGoogleLogin()
+        stubGoogleIdToken("google-id-token", "google-sub-1", "g@example.com", "Google User")
 
-        val response = performGoogleLogin("google-auth-code")
+        val response = performGoogleLogin("google-id-token")
 
         assertThat(response.accessToken).isNotBlank
         assertThat(response.refreshToken).isNotBlank
@@ -102,8 +104,8 @@ class AuthControllerIntegrationTest {
 
     @Test
     fun `refresh endpoint issues a new access token`() {
-        stubGoogleLogin()
-        val loginResponse = performGoogleLogin("google-auth-code")
+        stubGoogleIdToken("google-id-token", "google-sub-1", "g@example.com", "Google User")
+        val loginResponse = performGoogleLogin("google-id-token")
 
         val result = mockMvc.post("/auth/refresh") {
             contentType = MediaType.APPLICATION_JSON
@@ -120,8 +122,8 @@ class AuthControllerIntegrationTest {
 
     @Test
     fun `logout deletes refresh tokens for the authenticated user`() {
-        stubGoogleLogin()
-        val loginResponse = performGoogleLogin("google-auth-code")
+        stubGoogleIdToken("google-id-token", "google-sub-1", "g@example.com", "Google User")
+        val loginResponse = performGoogleLogin("google-id-token")
         val user = userRepository.findBySocialProviderAndSocialId(SocialProvider.GOOGLE, "google-sub-1")
         assertThat(user).isNotNull
 
@@ -148,10 +150,10 @@ class AuthControllerIntegrationTest {
         assertThat(refreshTokenRepository.findByUserId(user!!.id!!)).hasSize(1)
     }
 
-    private fun performGoogleLogin(code: String): TokenResponse {
+    private fun performGoogleLogin(idToken: String): TokenResponse {
         val result = mockMvc.post("/auth/oauth/google") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"code":"$code"}"""
+            content = """{"idToken":"$idToken"}"""
         }.andExpect {
             status { isOk() }
         }.andReturn()
@@ -170,40 +172,22 @@ class AuthControllerIntegrationTest {
         return objectMapper.readValue(result.response.contentAsString, TokenResponse::class.java)
     }
 
-    private fun stubGoogleLogin() {
-        googleWireMockServer.stubFor(
-            post(urlEqualTo("/token"))
-                .willReturn(
-                    okJson(
-                        """
-                        {
-                          "access_token": "google-access",
-                          "token_type": "Bearer",
-                          "expires_in": 3600
-                        }
-                        """.trimIndent(),
-                    ),
-                ),
-        )
-        googleWireMockServer.stubFor(
-            get(urlEqualTo("/userinfo"))
-                .willReturn(
-                    okJson(
-                        """
-                        {
-                          "sub": "google-sub-1",
-                          "email": "g@example.com",
-                          "name": "Google User"
-                        }
-                        """.trimIndent(),
-                    ),
-                ),
-        )
+    private fun stubGoogleIdToken(idTokenString: String, sub: String, email: String, name: String) {
+        // GoogleIdToken.Payload은 GenericJson 기반이라 직접 생성 가능
+        val payload = mock(GoogleIdToken.Payload::class.java)
+        `when`(payload.subject).thenReturn(sub)
+        `when`(payload["email"]).thenReturn(email)
+        `when`(payload["name"]).thenReturn(name)
+
+        val idToken = mock(GoogleIdToken::class.java)
+        `when`(idToken.payload).thenReturn(payload)
+
+        `when`(googleIdTokenVerifier.verify(idTokenString)).thenReturn(idToken)
     }
 
     private fun stubKakaoLogin() {
         kakaoWireMockServer.stubFor(
-            post(urlEqualTo("/oauth/token"))
+            wireMockPost(urlEqualTo("/oauth/token"))
                 .willReturn(
                     okJson(
                         """

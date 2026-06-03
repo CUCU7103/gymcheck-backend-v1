@@ -1,8 +1,8 @@
 package com.gymcheck.controller
 
-import com.gymcheck.dto.request.OAuthLoginRequest
-import com.gymcheck.dto.request.UpdateGoalRequest
-import com.gymcheck.dto.request.UpdateProfileRequest
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.gymcheck.dto.response.GoalResponse
 import com.gymcheck.dto.response.TokenResponse
 import com.gymcheck.dto.response.UserProfileResponse
@@ -11,26 +11,17 @@ import com.gymcheck.repository.RefreshTokenRepository
 import com.gymcheck.repository.UserGoalRepository
 import com.gymcheck.repository.UserRepository
 import com.gymcheck.repository.WorkoutLogRepository
-import com.gymcheck.security.jwt.JwtTokenProvider
-import com.github.tomakehurst.wiremock.WireMockServer
-import com.github.tomakehurst.wiremock.client.WireMock.get
-import com.github.tomakehurst.wiremock.client.WireMock.okJson
-import com.github.tomakehurst.wiremock.client.WireMock.post
-import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.`when`
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.http.MediaType
 import org.springframework.http.HttpHeaders
-import com.fasterxml.jackson.databind.ObjectMapper
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
@@ -48,31 +39,16 @@ import org.springframework.test.web.servlet.put
     ],
 )
 @AutoConfigureMockMvc
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class UserControllerIntegrationTest {
 
-    companion object {
-        private val googleWireMockServer = WireMockServer(options().dynamicPort())
-
-        init {
-            googleWireMockServer.start()
-        }
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun registerProperties(registry: DynamicPropertyRegistry) {
-            registry.add("oauth.google.token-uri") { "${googleWireMockServer.baseUrl()}/token" }
-            registry.add("oauth.google.user-info-uri") { "${googleWireMockServer.baseUrl()}/userinfo" }
-        }
-    }
-
     @Autowired lateinit var mockMvc: MockMvc
-    @Autowired lateinit var jwtTokenProvider: JwtTokenProvider
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var userGoalRepository: UserGoalRepository
     @Autowired lateinit var refreshTokenRepository: RefreshTokenRepository
     @Autowired lateinit var workoutLogRepository: WorkoutLogRepository
     @Autowired lateinit var objectMapper: ObjectMapper
+
+    @MockBean lateinit var googleIdTokenVerifier: GoogleIdTokenVerifier
 
     @BeforeEach
     fun setUp() {
@@ -80,17 +56,11 @@ class UserControllerIntegrationTest {
         workoutLogRepository.deleteAll()
         userGoalRepository.deleteAll()
         userRepository.deleteAll()
-        googleWireMockServer.resetAll()
-    }
-
-    @AfterAll
-    fun tearDown() {
-        googleWireMockServer.stop()
     }
 
     @Test
     fun `profile goal and account lifecycle works`() {
-        stubGoogleLogin()
+        stubGoogleIdToken("google-id-token", "google-sub-1", "g@example.com", "Google User")
         val login = login()
         val accessToken = login.accessToken
 
@@ -142,33 +112,22 @@ class UserControllerIntegrationTest {
     private fun login(): TokenResponse {
         val result = mockMvc.post("/auth/oauth/google") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"code":"google-auth-code"}"""
+            content = """{"idToken":"google-id-token"}"""
         }.andExpect {
             status { isOk() }
         }.andReturn()
         return objectMapper.readValue(result.response.contentAsString, TokenResponse::class.java)
     }
 
-    private fun stubGoogleLogin() {
-        googleWireMockServer.stubFor(
-            post(urlEqualTo("/token"))
-                .willReturn(
-                    okJson(
-                        """
-                        {"access_token":"google-access","token_type":"Bearer","expires_in":3600}
-                        """.trimIndent(),
-                    ),
-                ),
-        )
-        googleWireMockServer.stubFor(
-            get(urlEqualTo("/userinfo"))
-                .willReturn(
-                    okJson(
-                        """
-                        {"sub":"google-sub-1","email":"g@example.com","name":"Google User"}
-                        """.trimIndent(),
-                    ),
-                ),
-        )
+    private fun stubGoogleIdToken(idTokenString: String, sub: String, email: String, name: String) {
+        val payload = mock(GoogleIdToken.Payload::class.java)
+        `when`(payload.subject).thenReturn(sub)
+        `when`(payload["email"]).thenReturn(email)
+        `when`(payload["name"]).thenReturn(name)
+
+        val idToken = mock(GoogleIdToken::class.java)
+        `when`(idToken.payload).thenReturn(payload)
+
+        `when`(googleIdTokenVerifier.verify(idTokenString)).thenReturn(idToken)
     }
 }

@@ -1,29 +1,26 @@
 package com.gymcheck.controller
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.gymcheck.dto.response.MonthlyCalendarResponse
 import com.gymcheck.dto.response.ExerciseTypeResponse
 import com.gymcheck.dto.response.StreakResponse
 import com.gymcheck.dto.response.TokenResponse
 import com.gymcheck.dto.response.StatisticsSummaryResponse
-import com.github.tomakehurst.wiremock.WireMockServer
-import com.github.tomakehurst.wiremock.client.WireMock.get
-import com.github.tomakehurst.wiremock.client.WireMock.okJson
-import com.github.tomakehurst.wiremock.client.WireMock.post
-import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.`when`
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
@@ -39,40 +36,18 @@ import org.springframework.test.web.servlet.post
     ],
 )
 @AutoConfigureMockMvc
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class StatsIntegrationTest {
-
-    companion object {
-        private val googleWireMockServer = WireMockServer(options().dynamicPort())
-
-        init {
-            googleWireMockServer.start()
-        }
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun registerProperties(registry: DynamicPropertyRegistry) {
-            registry.add("oauth.google.token-uri") { "${googleWireMockServer.baseUrl()}/token" }
-            registry.add("oauth.google.user-info-uri") { "${googleWireMockServer.baseUrl()}/userinfo" }
-        }
-    }
 
     @Autowired lateinit var mockMvc: MockMvc
     @Autowired lateinit var objectMapper: ObjectMapper
 
-    @BeforeEach
-    fun reset() {
-        googleWireMockServer.resetAll()
-    }
-
-    @AfterAll
-    fun tearDown() {
-        googleWireMockServer.stop()
-    }
+    @MockBean lateinit var googleIdTokenVerifier: GoogleIdTokenVerifier
+    @MockBean lateinit var clock: Clock
 
     @Test
     fun `stats endpoints return streak calendar and summary`() {
-        stubGoogleLogin()
+        stubToday("2026-05-31T12:00:00Z")
+        stubGoogleIdToken("google-id-token", "google-sub-1", "g@example.com", "Google User")
         val token = login().accessToken
 
         val exerciseType = mockMvc.post("/exercise-types") {
@@ -104,6 +79,7 @@ class StatsIntegrationTest {
             header(HttpHeaders.AUTHORIZATION, "Bearer $token")
         }.andExpect {
             status { isOk() }
+            jsonPath("$.isGoalAchievedToday") { value(true) }
         }.andReturn().response.contentAsByteArray.let {
             objectMapper.readValue(it, StreakResponse::class.java)
         }
@@ -115,6 +91,7 @@ class StatsIntegrationTest {
             param("month", "5")
         }.andExpect {
             status { isOk() }
+            jsonPath("$.days[29].hasWorkout") { value(true) }
         }.andReturn().response.contentAsByteArray.let {
             objectMapper.readValue(it, MonthlyCalendarResponse::class.java)
         }
@@ -122,21 +99,26 @@ class StatsIntegrationTest {
 
         val summary = mockMvc.get("/stats/summary") {
             header(HttpHeaders.AUTHORIZATION, "Bearer $token")
-            param("year", "2026")
-            param("month", "5")
         }.andExpect {
             status { isOk() }
+            jsonPath("$.monthlyTotal") { value(2) }
+            jsonPath("$.weeklyProgress.current") { value(2) }
+            jsonPath("$.weeklyProgress.goal") { value(7) }
+            jsonPath("$.exerciseTypeStats[0].exerciseType.name") { value("복싱") }
         }.andReturn().response.contentAsByteArray.let {
             objectMapper.readValue(it, StatisticsSummaryResponse::class.java)
         }
         assertThat(summary.totalWorkoutCount).isEqualTo(2)
         assertThat(summary.exerciseTypeCounts).isNotEmpty
+        assertThat(summary.monthlyTotal).isEqualTo(2)
+        assertThat(summary.weeklyProgress.current).isEqualTo(2)
+        assertThat(summary.exerciseTypeStats).isNotEmpty
     }
 
     private fun login(): TokenResponse {
         val result = mockMvc.post("/auth/oauth/google") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"code":"google-auth-code"}"""
+            content = """{"idToken":"google-id-token"}"""
         }.andExpect {
             status { isOk() }
         }.andReturn()
@@ -144,26 +126,20 @@ class StatsIntegrationTest {
         return objectMapper.readValue(result.response.contentAsByteArray, TokenResponse::class.java)
     }
 
-    private fun stubGoogleLogin() {
-        googleWireMockServer.stubFor(
-            post(urlEqualTo("/token"))
-                .willReturn(
-                    okJson(
-                        """
-                        {"access_token":"google-access","token_type":"Bearer","expires_in":3600}
-                        """.trimIndent(),
-                    ),
-                ),
-        )
-        googleWireMockServer.stubFor(
-            get(urlEqualTo("/userinfo"))
-                .willReturn(
-                    okJson(
-                        """
-                        {"sub":"google-sub-1","email":"g@example.com","name":"Google User"}
-                        """.trimIndent(),
-                    ),
-                ),
-        )
+    private fun stubGoogleIdToken(idTokenString: String, sub: String, email: String, name: String) {
+        val payload = mock(GoogleIdToken.Payload::class.java)
+        `when`(payload.subject).thenReturn(sub)
+        `when`(payload["email"]).thenReturn(email)
+        `when`(payload["name"]).thenReturn(name)
+
+        val idToken = mock(GoogleIdToken::class.java)
+        `when`(idToken.payload).thenReturn(payload)
+
+        `when`(googleIdTokenVerifier.verify(idTokenString)).thenReturn(idToken)
+    }
+
+    private fun stubToday(instant: String) {
+        `when`(clock.zone).thenReturn(ZoneId.of("Asia/Seoul"))
+        `when`(clock.instant()).thenReturn(Instant.parse(instant))
     }
 }

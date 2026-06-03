@@ -16,11 +16,7 @@ spring:
 
 oauth:
   google:
-    client-id: test-client-id
-    client-secret: test-client-secret
-    redirect-uri: http://localhost/callback
-    token-uri: http://localhost/token
-    user-info-uri: http://localhost/userinfo
+    client-id: 900685841216-2m4861fpaf4stupncncssh2ds5rdki5r.apps.googleusercontent.com
   kakao:
     client-id: test-kakao-id
     client-secret: test-kakao-secret

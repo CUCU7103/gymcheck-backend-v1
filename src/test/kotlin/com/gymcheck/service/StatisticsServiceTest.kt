@@ -48,7 +48,9 @@ class StatisticsServiceTest {
         val response = service.getMonthlyCalendar(1L, 2026, 5)
 
         assertThat(response.days.first { it.date == LocalDate.of(2026, 5, 30) }.workoutCount).isEqualTo(1)
+        assertThat(response.days.first { it.date == LocalDate.of(2026, 5, 30) }.hasWorkout).isTrue()
         assertThat(response.days.first { it.date == LocalDate.of(2026, 5, 31) }.workoutCount).isEqualTo(2)
+        assertThat(response.days.first { it.date == LocalDate.of(2026, 5, 29) }.hasWorkout).isFalse()
     }
 
     @Test
@@ -81,6 +83,11 @@ class StatisticsServiceTest {
         assertThat(response.exerciseTypeCounts).hasSize(2)
         assertThat(response.exerciseTypeCounts.first().exerciseTypeName).isEqualTo("헬스")
         assertThat(response.weeklyAchievementRate).isEqualTo(1.0)
+        assertThat(response.weeklyProgress.current).isEqualTo(3)
+        assertThat(response.weeklyProgress.goal).isEqualTo(3)
+        assertThat(response.weeklyProgress.percentage).isEqualTo(1.0)
+        assertThat(response.monthlyTotal).isEqualTo(3)
+        assertThat(response.exerciseTypeStats.first().exerciseType.name).isEqualTo("헬스")
     }
 
     private fun user(id: Long): User {
