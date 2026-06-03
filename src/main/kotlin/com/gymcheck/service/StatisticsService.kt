@@ -1,9 +1,13 @@
 package com.gymcheck.service
 
+import com.gymcheck.domain.user.GoalType
 import com.gymcheck.dto.response.CalendarDayResponse
 import com.gymcheck.dto.response.ExerciseTypeCountResponse
+import com.gymcheck.dto.response.ExerciseTypeResponse
+import com.gymcheck.dto.response.ExerciseTypeStatResponse
 import com.gymcheck.dto.response.MonthlyCalendarResponse
 import com.gymcheck.dto.response.StatisticsSummaryResponse
+import com.gymcheck.dto.response.WeeklyProgressResponse
 import com.gymcheck.repository.UserGoalRepository
 import com.gymcheck.repository.WorkoutLogRepository
 import java.time.Clock
@@ -68,22 +72,39 @@ class StatisticsService(
                 )
             }
 
-        val weeklyAchievementRate = calculateWeeklyAchievementRate(userId, yearMonth)
+        val exerciseTypeStats = exerciseTypeCounts.map { count ->
+            val exerciseType = logs.first { it.exerciseType.id == count.exerciseTypeId }.exerciseType
+            ExerciseTypeStatResponse(
+                exerciseType = ExerciseTypeResponse(
+                    id = count.exerciseTypeId,
+                    name = count.exerciseTypeName,
+                    isDefault = exerciseType.isDefault,
+                    userId = exerciseType.user?.id,
+                    usageCount = 0,
+                ),
+                count = count.count,
+            )
+        }
+
+        val weeklyProgress = calculateWeeklyProgress(userId, yearMonth)
 
         return StatisticsSummaryResponse(
             totalWorkoutCount = logs.size,
             exerciseTypeCounts = exerciseTypeCounts,
-            weeklyAchievementRate = weeklyAchievementRate,
+            weeklyAchievementRate = weeklyProgress.percentage,
+            weeklyProgress = weeklyProgress,
+            exerciseTypeStats = exerciseTypeStats,
+            monthlyTotal = logs.size,
         )
     }
 
-    private fun calculateWeeklyAchievementRate(userId: Long, yearMonth: YearMonth): Double {
-        val goal = userGoalRepository.findByUserId(userId) ?: return 0.0
+    private fun calculateWeeklyProgress(userId: Long, yearMonth: YearMonth): WeeklyProgressResponse {
+        val goal = userGoalRepository.findByUserId(userId)
         val today = LocalDate.now(clock)
         val currentYearMonth = YearMonth.from(today)
 
         val (weekStart, weekEnd) = when {
-            yearMonth.isAfter(currentYearMonth) -> return 0.0
+            yearMonth.isAfter(currentYearMonth) -> return WeeklyProgressResponse(current = 0, goal = goalTarget(goal), percentage = 0.0)
             yearMonth == currentYearMonth -> {
                 today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)) to
                     today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
@@ -99,12 +120,22 @@ class StatisticsService(
         val count = logs.size
         val distinctDays = logs.map { it.logDate }.toSet().size
 
-        return when (goal.goalType) {
-            com.gymcheck.domain.user.GoalType.DAILY -> (distinctDays.toDouble() / 7.0).coerceAtMost(1.0)
-            com.gymcheck.domain.user.GoalType.WEEKLY -> {
-                val target = goal.weeklyCount ?: 1
-                (count.toDouble() / target).coerceAtMost(1.0)
-            }
+        val current = when (goal?.goalType ?: GoalType.DAILY) {
+            GoalType.DAILY -> distinctDays
+            GoalType.WEEKLY -> count
         }
+        val target = goalTarget(goal)
+
+        return WeeklyProgressResponse(
+            current = current,
+            goal = target,
+            percentage = (current.toDouble() / target).coerceAtMost(1.0),
+        )
     }
+
+    private fun goalTarget(goal: com.gymcheck.domain.user.UserGoal?): Int =
+        when (goal?.goalType ?: GoalType.DAILY) {
+            GoalType.DAILY -> 7
+            GoalType.WEEKLY -> goal?.weeklyCount ?: 1
+        }
 }

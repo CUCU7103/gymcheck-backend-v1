@@ -14,6 +14,8 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
+import java.time.Clock
+import java.time.LocalDate
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -26,6 +28,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal
 class StatsController(
     private val streakService: StreakService,
     private val statisticsService: StatisticsService,
+    private val clock: Clock,
 ) {
 
     @Operation(
@@ -91,9 +94,12 @@ class StatsController(
     @GetMapping("/calendar")
     fun getCalendar(
         @AuthenticationPrincipal user: UserPrincipal,
-        @RequestParam year: Int,
-        @RequestParam month: Int,
-    ): MonthlyCalendarResponse = statisticsService.getMonthlyCalendar(user.id, year, month)
+        @RequestParam(required = false) year: Int?,
+        @RequestParam(required = false) month: Int?,
+    ): MonthlyCalendarResponse {
+        val targetMonth = targetMonth(year, month)
+        return statisticsService.getMonthlyCalendar(user.id, targetMonth.year, targetMonth.monthValue)
+    }
 
     @Operation(
         summary = "월간 운동 요약 조회",
@@ -128,7 +134,15 @@ class StatsController(
     @GetMapping("/summary")
     fun getSummary(
         @AuthenticationPrincipal user: UserPrincipal,
-        @RequestParam year: Int,
-        @RequestParam month: Int,
-    ): StatisticsSummaryResponse = statisticsService.getSummary(user.id, year, month)
+        @RequestParam(required = false) year: Int?,
+        @RequestParam(required = false) month: Int?,
+    ): StatisticsSummaryResponse {
+        val targetMonth = targetMonth(year, month)
+        return statisticsService.getSummary(user.id, targetMonth.year, targetMonth.monthValue)
+    }
+
+    private fun targetMonth(year: Int?, month: Int?): LocalDate {
+        val today = LocalDate.now(clock)
+        return LocalDate.of(year ?: today.year, month ?: today.monthValue, 1)
+    }
 }

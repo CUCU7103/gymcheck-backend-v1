@@ -7,6 +7,7 @@ import com.gymcheck.dto.request.UpdateNotificationSettingsRequest
 import com.gymcheck.dto.response.NotificationSettingsResponse
 import com.gymcheck.repository.FcmTokenRepository
 import com.gymcheck.repository.NotificationSettingRepository
+import java.time.LocalTime
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -36,9 +37,9 @@ class NotificationService(
         val setting = notificationSettingRepository.findByUserId(userId)
             ?: NotificationSetting(user = user)
 
-        setting.enabled = request.enabled
-        setting.notifyTime = request.notifyTime
-        setting.timezone = request.timezone
+        setting.enabled = request.enabled ?: request.isEnabled ?: setting.enabled
+        setting.notifyTime = request.notifyTime ?: request.notificationTime() ?: setting.notifyTime
+        setting.timezone = request.timezone ?: setting.timezone ?: "Asia/Seoul"
 
         return notificationSettingRepository.save(setting).toResponse()
     }
@@ -68,4 +69,10 @@ class NotificationService(
         notifyTime = notifyTime,
         timezone = timezone,
     )
+
+    private fun UpdateNotificationSettingsRequest.notificationTime(): LocalTime? {
+        val hour = notificationHour ?: return null
+        val minute = notificationMinute ?: return null
+        return LocalTime.of(hour, minute)
+    }
 }
