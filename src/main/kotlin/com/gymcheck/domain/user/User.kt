@@ -3,7 +3,7 @@ package com.gymcheck.domain.user
 import com.gymcheck.domain.BaseEntity
 import com.gymcheck.domain.notification.FcmToken
 import com.gymcheck.domain.notification.NotificationSetting
-import com.gymcheck.domain.workout.RefreshToken
+import com.gymcheck.domain.auth.RefreshToken
 import com.gymcheck.domain.workout.WorkoutLog
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column

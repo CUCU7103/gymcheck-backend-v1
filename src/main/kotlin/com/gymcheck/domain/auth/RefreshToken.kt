@@ -1,4 +1,4 @@
-package com.gymcheck.domain.workout
+package com.gymcheck.domain.auth
 
 import com.gymcheck.domain.BaseEntity
 import com.gymcheck.domain.user.User

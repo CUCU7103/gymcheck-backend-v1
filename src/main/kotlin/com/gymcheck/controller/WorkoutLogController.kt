@@ -6,12 +6,14 @@ import com.gymcheck.exception.ApiErrorResponse
 import com.gymcheck.security.jwt.UserPrincipal
 import com.gymcheck.service.WorkoutLogService
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
+import java.time.Clock
 import java.time.LocalDate
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController
 @Tag(name = "운동 기록", description = "운동 기록을 조회, 생성, 삭제하는 엔드포인트")
 class WorkoutLogController(
     private val workoutLogService: WorkoutLogService,
+    private val clock: Clock,
 ) {
 
     @Operation(
@@ -63,8 +66,14 @@ class WorkoutLogController(
     @GetMapping
     fun getWorkoutLogs(
         @AuthenticationPrincipal user: UserPrincipal,
-        @RequestParam logDate: LocalDate,
-    ): List<WorkoutLogResponse> = workoutLogService.getWorkoutLogs(user.id, logDate)
+        @Parameter(description = "조회 날짜 (deprecated, date 파라미터를 사용하세요)", deprecated = true)
+        @RequestParam(required = false) logDate: LocalDate?,
+        @Parameter(description = "조회 날짜 (yyyy-MM-dd, 미입력 시 오늘)")
+        @RequestParam(name = "date", required = false) date: LocalDate?,
+    ): List<WorkoutLogResponse> {
+        val resolvedLogDate = logDate ?: date ?: LocalDate.now(clock)
+        return workoutLogService.getWorkoutLogs(user.id, resolvedLogDate)
+    }
 
     @Operation(
         summary = "운동 기록 생성",

@@ -3,6 +3,7 @@ package com.gymcheck.service
 import com.gymcheck.domain.workout.ExerciseType
 import com.gymcheck.domain.workout.WorkoutLog
 import com.gymcheck.dto.request.CreateWorkoutLogRequest
+import com.gymcheck.dto.response.ExerciseTypeResponse
 import com.gymcheck.dto.response.WorkoutLogResponse
 import com.gymcheck.exception.CustomException
 import com.gymcheck.exception.ErrorCode
@@ -63,8 +64,13 @@ class WorkoutLogService(
 
     private fun WorkoutLog.toResponse() = WorkoutLogResponse(
         id = id!!,
-        exerciseTypeId = exerciseType.id!!,
-        exerciseTypeName = exerciseType.name,
+        exerciseType = ExerciseTypeResponse(
+            id = exerciseType.id!!,
+            name = exerciseType.name,
+            isDefault = exerciseType.isDefault,
+            userId = exerciseType.user?.id,
+            usageCount = 0,
+        ),
         logDate = logDate,
         memo = memo,
         createdAt = createdAt!!,

@@ -1,6 +1,6 @@
 package com.gymcheck.service.auth
 
-import com.gymcheck.domain.workout.RefreshToken
+import com.gymcheck.domain.auth.RefreshToken
 import com.gymcheck.exception.CustomException
 import com.gymcheck.exception.ErrorCode
 import com.gymcheck.repository.RefreshTokenRepository

@@ -39,10 +39,6 @@ jwt:
 oauth:
   google:
     client-id: ${GOOGLE_CLIENT_ID:}
-    client-secret: ${GOOGLE_CLIENT_SECRET:}
-    redirect-uri: ${GOOGLE_REDIRECT_URI:}
-    token-uri: ${GOOGLE_TOKEN_URI:https://oauth2.googleapis.com/token}
-    user-info-uri: ${GOOGLE_USER_INFO_URI:https://www.googleapis.com/oauth2/v3/userinfo}
   kakao:
     client-id: ${KAKAO_CLIENT_ID:}
     client-secret: ${KAKAO_CLIENT_SECRET:}
@@ -56,7 +52,6 @@ firebase:
 
 springdoc:
   swagger-ui:
-    path: /swagger-ui.html
     tags-sorter: alpha
   api-docs:
     path: /v3/api-docs

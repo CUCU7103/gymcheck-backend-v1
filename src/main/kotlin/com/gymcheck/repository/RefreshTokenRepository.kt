@@ -1,6 +1,6 @@
 package com.gymcheck.repository
 
-import com.gymcheck.domain.workout.RefreshToken
+import com.gymcheck.domain.auth.RefreshToken
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface RefreshTokenRepository : JpaRepository<RefreshToken, Long> {

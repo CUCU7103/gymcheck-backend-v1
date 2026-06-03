@@ -3,7 +3,6 @@ package com.gymcheck.config
 import io.swagger.v3.oas.models.Components
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Info
-import io.swagger.v3.oas.models.security.SecurityRequirement
 import io.swagger.v3.oas.models.security.SecurityScheme
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -29,6 +28,4 @@ class OpenApiConfig {
                     .description("JWT 액세스 토큰을 입력하세요. 예: eyJhbGci..."),
             ),
         )
-        // 모든 엔드포인트에 기본 Bearer 인증 적용
-        .addSecurityItem(SecurityRequirement().addList("BearerAuth"))
 }

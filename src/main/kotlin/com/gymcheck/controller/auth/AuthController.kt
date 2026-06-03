@@ -1,6 +1,7 @@
 package com.gymcheck.controller.auth
 
 import com.gymcheck.domain.user.SocialProvider
+import com.gymcheck.dto.request.GoogleLoginRequest
 import com.gymcheck.dto.request.OAuthLoginRequest
 import com.gymcheck.dto.request.RefreshTokenRequest
 import com.gymcheck.dto.response.TokenResponse
@@ -12,6 +13,8 @@ import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
+import io.swagger.v3.oas.annotations.security.SecurityRequirements
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
@@ -31,8 +34,9 @@ class AuthController(
 
     @Operation(
         summary = "구글 로그인",
-        description = "구글 OAuth 인가 코드를 사용해 로그인합니다.",
+        description = "구글 OAuth ID 토큰을 사용해 로그인합니다.",
     )
+    @SecurityRequirements
     @ApiResponses(
         value = [
             ApiResponse(
@@ -58,14 +62,15 @@ class AuthController(
         ],
     )
     @PostMapping("/oauth/google")
-    fun googleLogin(@Valid @RequestBody request: OAuthLoginRequest): TokenResponse {
-        return authService.processLogin(SocialProvider.GOOGLE, request.code)
+    fun googleLogin(@Valid @RequestBody request: GoogleLoginRequest): TokenResponse {
+        return authService.processLogin(SocialProvider.GOOGLE, request.idToken)
     }
 
     @Operation(
         summary = "카카오 로그인",
         description = "카카오 OAuth 인가 코드를 사용해 로그인합니다.",
     )
+    @SecurityRequirements
     @ApiResponses(
         value = [
             ApiResponse(
@@ -99,6 +104,7 @@ class AuthController(
         summary = "액세스 토큰 재발급",
         description = "리프레시 토큰으로 새로운 액세스 토큰을 발급합니다.",
     )
+    @SecurityRequirements
     @ApiResponses(
         value = [
             ApiResponse(

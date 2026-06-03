@@ -7,7 +7,7 @@ import com.gymcheck.domain.user.SocialProvider
 import com.gymcheck.domain.user.User
 import com.gymcheck.domain.user.UserGoal
 import com.gymcheck.domain.workout.ExerciseType
-import com.gymcheck.domain.workout.RefreshToken
+import com.gymcheck.domain.auth.RefreshToken
 import com.gymcheck.domain.workout.WorkoutLog
 import com.gymcheck.repository.ExerciseTypeRepository
 import com.gymcheck.repository.FcmTokenRepository
