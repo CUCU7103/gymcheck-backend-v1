@@ -10,6 +10,11 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.OneToOne
 import jakarta.persistence.Table
 
+/**
+ * 사용자의 운동 목표를 저장하는 엔티티.
+ *
+ * DAILY는 매일 운동 여부를, WEEKLY는 주간 횟수 목표를 표현한다.
+ */
 @Entity
 @Table(name = "user_goals")
 class UserGoal(

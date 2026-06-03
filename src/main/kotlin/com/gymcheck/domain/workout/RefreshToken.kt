@@ -10,6 +10,11 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import java.time.LocalDateTime
 
+/**
+ * 로그인 상태를 연장하기 위한 리프레시 토큰.
+ *
+ * 사용자별로 여러 개가 저장될 수 있고, 만료 시각을 함께 관리한다.
+ */
 @Entity
 @Table(name = "refresh_tokens")
 class RefreshToken(

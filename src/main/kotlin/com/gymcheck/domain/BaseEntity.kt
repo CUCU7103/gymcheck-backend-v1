@@ -8,6 +8,9 @@ import jakarta.persistence.MappedSuperclass
 import jakarta.persistence.PrePersist
 import java.time.LocalDateTime
 
+/**
+ * 모든 엔티티가 공통으로 가지는 기본 식별자와 생성 시각을 제공하는 부모 클래스.
+ */
 @MappedSuperclass
 abstract class BaseEntity {
 

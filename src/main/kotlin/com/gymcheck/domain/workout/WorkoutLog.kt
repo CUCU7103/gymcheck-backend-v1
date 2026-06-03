@@ -10,6 +10,11 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import java.time.LocalDate
 
+/**
+ * 특정 날짜에 기록된 사용자의 운동 로그.
+ *
+ * 사용자와 운동 종류를 연결하고, 메모를 함께 저장한다.
+ */
 @Entity
 @Table(name = "workout_logs")
 class WorkoutLog(

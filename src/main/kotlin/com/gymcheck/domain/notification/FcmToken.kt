@@ -9,6 +9,9 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 
+/**
+ * 푸시 알림 발송에 사용하는 FCM 디바이스 토큰.
+ */
 @Entity
 @Table(name = "fcm_tokens")
 class FcmToken(

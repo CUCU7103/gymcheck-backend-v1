@@ -9,6 +9,11 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 
+/**
+ * 운동 기록에 사용할 운동 종류.
+ *
+ * 기본 운동은 전체 사용자에게 노출되고, user가 있으면 특정 사용자가 만든 커스텀 항목이다.
+ */
 @Entity
 @Table(name = "exercise_types")
 class ExerciseType(
