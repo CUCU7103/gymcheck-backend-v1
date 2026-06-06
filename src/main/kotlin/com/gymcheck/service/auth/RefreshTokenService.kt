@@ -16,6 +16,10 @@ class RefreshTokenService(
     private val userRepository: UserRepository,
     private val jwtTokenProvider: JwtTokenProvider,
 ) {
+    /**
+     * 사용자당 하나의 refresh token만 보관한다.
+     * 모바일 앱에서 중복 로그인 정책이 바뀌면 이 메서드와 DB unique 정책을 함께 검토해야 한다.
+     */
     @Transactional
     fun saveRefreshToken(userId: Long, token: String): RefreshToken {
         refreshTokenRepository.deleteByUserId(userId)
@@ -32,6 +36,10 @@ class RefreshTokenService(
         return refreshTokenRepository.save(refreshToken)
     }
 
+    /**
+     * refresh token 검증은 두 단계다.
+     * 1) JWT 자체의 서명/만료 검증, 2) 서버 저장소에 아직 남아 있는 토큰인지 확인.
+     */
     @Transactional(readOnly = true)
     fun validateAndGetUserId(token: String): Long {
         if (!jwtTokenProvider.validateToken(token)) {

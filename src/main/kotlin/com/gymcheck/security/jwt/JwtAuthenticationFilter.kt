@@ -21,6 +21,7 @@ class JwtAuthenticationFilter(
         val token = resolveToken(request)
 
         if (token != null && jwtTokenProvider.validateToken(token)) {
+            // 권한 모델은 아직 role을 사용하지 않고, JWT subject의 userId만 SecurityContext에 싣는다.
             val authentication = jwtTokenProvider.getAuthentication(token).apply {
                 details = WebAuthenticationDetailsSource().buildDetails(request)
             }

@@ -25,6 +25,12 @@ class AuthService(
     private val clientMap: Map<SocialProvider, OAuthClient> =
         oAuthClients.associateBy { it.provider }
 
+    /**
+     * 소셜 로그인 공통 진입점.
+     *
+     * Provider별 인증 방식은 OAuthClient 구현체가 맡고, 이 서비스는
+     * "외부 사용자 식별자 → 내부 User → 자체 JWT 발급" 흐름만 책임진다.
+     */
     @Transactional
     fun processLogin(provider: SocialProvider, code: String): TokenResponse {
         val client = clientMap[provider]
@@ -34,6 +40,10 @@ class AuthService(
         return issueTokens(user.id!!)
     }
 
+    /**
+     * refresh token은 DB에도 존재해야 유효하다.
+     * JWT 서명만 맞는 탈취/폐기 토큰을 막기 위해 저장소 조회를 함께 수행한다.
+     */
     @Transactional
     fun refreshAccessToken(refreshToken: String): TokenResponse {
         val userId = refreshTokenService.validateAndGetUserId(refreshToken)
@@ -52,6 +62,7 @@ class AuthService(
     private fun issueTokens(userId: Long): TokenResponse {
         val accessToken = jwtTokenProvider.createAccessToken(userId)
         val refreshToken = jwtTokenProvider.createRefreshToken(userId)
+        // 현재 정책은 사용자당 refresh token 1개만 유지한다. 새 로그인은 이전 세션을 대체한다.
         refreshTokenService.saveRefreshToken(userId, refreshToken)
 
         return TokenResponse(

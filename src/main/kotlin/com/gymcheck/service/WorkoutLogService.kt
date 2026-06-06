@@ -20,6 +20,10 @@ class WorkoutLogService(
     private val userFinder: UserFinder,
 ) {
 
+    /**
+     * 하루에 여러 운동을 기록할 수 있으므로 목록 반환값은 복수다.
+     * 최신 입력 순으로 보여주기 위해 createdAt/id 역순 정렬을 적용한다.
+     */
     @Transactional(readOnly = true)
     fun getWorkoutLogs(userId: Long, logDate: LocalDate): List<WorkoutLogResponse> {
         return workoutLogRepository.findByUserIdAndLogDate(userId, logDate)
@@ -27,6 +31,10 @@ class WorkoutLogService(
             .map { it.toResponse() }
     }
 
+    /**
+     * 로그 생성 시 운동 종류 접근 권한을 먼저 확인한다.
+     * 기본 운동은 모두 접근 가능하지만, 커스텀 운동은 소유자만 사용할 수 있다.
+     */
     @Transactional
     fun createWorkoutLog(userId: Long, request: CreateWorkoutLogRequest): WorkoutLogResponse {
         val user = userFinder.findById(userId)

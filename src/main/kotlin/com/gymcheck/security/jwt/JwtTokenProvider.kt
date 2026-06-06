@@ -49,6 +49,7 @@ class JwtTokenProvider(
         val now = Instant.now()
         val expiration = now.plusMillis(expirationMillis)
 
+        // subject에는 내부 userId만 넣는다. 사용자 권한/프로필 정보가 필요하면 DB에서 다시 조회한다.
         return Jwts.builder()
             .id(UUID.randomUUID().toString())
             .subject(userId.toString())

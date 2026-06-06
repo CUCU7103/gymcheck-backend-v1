@@ -50,6 +50,7 @@ class SecurityConfig {
             .csrf { csrf -> csrf.disable() }
             .cors(Customizer.withDefaults())
             .sessionManagement { session ->
+                // 모바일/API 서버라 세션을 만들지 않는다. 매 요청은 Bearer access token으로 인증된다.
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             }
             .exceptionHandling { exceptions ->

@@ -13,7 +13,7 @@ import java.time.LocalDateTime
 /**
  * 로그인 상태를 연장하기 위한 리프레시 토큰.
  *
- * 사용자별로 여러 개가 저장될 수 있고, 만료 시각을 함께 관리한다.
+ * 현재 서비스 정책은 사용자당 하나의 토큰만 유지하며, 새 로그인 시 기존 토큰을 폐기한다.
  */
 @Entity
 @Table(name = "refresh_tokens")

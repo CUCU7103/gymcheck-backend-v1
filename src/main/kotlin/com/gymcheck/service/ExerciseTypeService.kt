@@ -19,6 +19,10 @@ class ExerciseTypeService(
     private val userFinder: UserFinder,
 ) {
 
+    /**
+     * 운동 종류 목록은 "최근에 많이 쓴 항목"을 먼저 보여주도록 정렬한다.
+     * 기본 운동과 사용자 커스텀 운동을 같은 목록에 섞어 반환하므로 ownership 체크가 중요하다.
+     */
     @Transactional(readOnly = true)
     fun getExerciseTypes(userId: Long): List<ExerciseTypeResponse> {
         val types = exerciseTypeRepository.findByUserIdOrIsDefaultTrue(userId)
@@ -35,6 +39,10 @@ class ExerciseTypeService(
             }
     }
 
+    /**
+     * 커스텀 운동명은 사용자가 볼 수 있는 전체 목록 안에서 중복을 막는다.
+     * 즉, 기본 운동명과도 충돌할 수 없다.
+     */
     @Transactional
     fun createCustomExerciseType(userId: Long, request: CreateExerciseTypeRequest): ExerciseTypeResponse {
         val user = userFinder.findById(userId)
@@ -72,6 +80,7 @@ class ExerciseTypeService(
     }
 
     private fun countUsage(userId: Long): Map<Long, Long> {
+        // 목록 정렬용 지표라 전체 기간이 아니라 최근 30일만 집계한다.
         val startDate = LocalDate.now().minusDays(30)
         val logs = workoutLogRepository.findByUserIdAndLogDateBetween(userId, startDate, LocalDate.now())
         return logs.groupingBy { it.exerciseType.id!! }.eachCount().mapValues { it.value.toLong() }

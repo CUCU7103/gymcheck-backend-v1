@@ -19,6 +19,10 @@ class StreakService(
     private val clock: Clock,
 ) {
 
+    /**
+     * 사용자의 목표 타입에 따라 streak의 단위가 달라진다.
+     * DAILY는 연속 날짜, WEEKLY는 목표 횟수를 채운 연속 주를 의미한다.
+     */
     @Transactional(readOnly = true)
     fun getStreak(userId: Long): StreakResponse {
         userFinder.findById(userId)
@@ -44,6 +48,7 @@ class StreakService(
             .toSet()
         val today = LocalDate.now(clock)
 
+        // 오늘부터 거꾸로 보며 기록이 끊기는 지점까지가 현재 streak다.
         val currentStreak = generateSequence(today) { it.minusDays(1) }
             .takeWhile { logs.contains(it) }
             .count()
@@ -63,6 +68,8 @@ class StreakService(
         val currentWeekStart = startOfWeek(LocalDate.now(clock))
         val currentWeekAchieved = (weekCounts[currentWeekStart] ?: 0) >= weeklyCount
 
+        // 현재 주가 아직 목표 미달이면 현재 streak는 0으로 본다.
+        // "지난주까지의 연속 기록"을 보여주는 정책으로 바꾸려면 이 분기부터 수정해야 한다.
         val currentStreak = if (!currentWeekAchieved) {
             0
         } else {
