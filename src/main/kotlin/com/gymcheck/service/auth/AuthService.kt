@@ -32,10 +32,10 @@ class AuthService(
      * "외부 사용자 식별자 → 내부 User → 자체 JWT 발급" 흐름만 책임진다.
      */
     @Transactional
-    fun processLogin(provider: SocialProvider, code: String): TokenResponse {
+    fun processLogin(provider: SocialProvider, credential: String): TokenResponse {
         val client = clientMap[provider]
             ?: throw CustomException(ErrorCode.BAD_REQUEST, "지원하지 않는 소셜 프로바이더입니다: $provider")
-        val userInfo = client.fetchUserInfo(code)
+        val userInfo = client.fetchUserInfo(credential)
         val user = findOrCreateUser(provider, userInfo.socialId, userInfo.email, userInfo.nickname)
         return issueTokens(user.id!!)
     }

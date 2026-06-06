@@ -11,10 +11,15 @@ interface OAuthClient {
     val provider: SocialProvider
 
     /**
-     * 인가 코드를 액세스 토큰으로 교환한 뒤,
-     * 사용자 정보까지 조회해 [OAuthUserInfo]로 반환한다.
+     * 프로바이더 자격증명(credential)으로 사용자 정보를 조회해 [OAuthUserInfo]로 반환한다.
+     *
+     * credential의 구체적 형태는 프로바이더마다 다르다.
+     * - Google: 클라이언트가 발급받은 ID 토큰(JWT)
+     * - Kakao: OAuth 인가 코드(authorization code)
+     *
+     * 각 구현체가 자신의 방식으로 검증·교환해 사용자 정보를 얻는다.
      */
-    fun fetchUserInfo(code: String): OAuthUserInfo
+    fun fetchUserInfo(credential: String): OAuthUserInfo
 }
 
 /** OAuth 프로바이더에서 받아온 사용자 식별 정보 */

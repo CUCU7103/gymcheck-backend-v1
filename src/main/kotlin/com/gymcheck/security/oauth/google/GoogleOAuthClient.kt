@@ -21,11 +21,11 @@ class GoogleOAuthClient(
      * verifier.verify()는 audience, issuer, expiry를 모두 자동 검증한다.
      * null 반환은 검증 실패(위변조, 만료 등)를 의미한다.
      *
-     * @param code OAuthClient 인터페이스 시그니처 유지 — 실제로는 Google idToken JWT
+     * @param credential Google이 발급한 ID 토큰(JWT)
      */
-    override fun fetchUserInfo(code: String): OAuthUserInfo {
+    override fun fetchUserInfo(credential: String): OAuthUserInfo {
         val idToken = try {
-            verifier.verify(code)
+            verifier.verify(credential)
         } catch (e: Exception) {
             throw CustomException(ErrorCode.UNAUTHORIZED, "Google idToken 검증에 실패했습니다.")
         } ?: throw CustomException(ErrorCode.UNAUTHORIZED, "유효하지 않은 Google idToken입니다.")

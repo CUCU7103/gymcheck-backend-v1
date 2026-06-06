@@ -24,9 +24,11 @@ class KakaoOAuthClient(
 
     /**
      * 인가 코드 → Kakao 액세스 토큰 → 사용자 정보 조회 후 공통 OAuthUserInfo 반환.
+     *
+     * @param credential Kakao OAuth 인가 코드(authorization code)
      */
-    override fun fetchUserInfo(code: String): OAuthUserInfo {
-        val kakaoToken = exchangeCodeForToken(code)
+    override fun fetchUserInfo(credential: String): OAuthUserInfo {
+        val kakaoToken = exchangeCodeForToken(credential)
         val userInfo = getUserInfo(kakaoToken.accessToken)
         return OAuthUserInfo(
             socialId = userInfo.id,
