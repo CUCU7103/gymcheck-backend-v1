@@ -28,6 +28,10 @@ class StreakService(
         userFinder.findById(userId)
         val goal = userGoalRepository.findByUserId(userId)
 
+        val today = LocalDate.now(clock)
+        val hasLoggedToday = workoutLogRepository.findByUserId(userId)
+            .any { it.logDate == today }
+
         val response = when (goal?.goalType ?: GoalType.DAILY) {
             GoalType.DAILY -> calculateDailyStreak(userId)
             GoalType.WEEKLY -> calculateWeeklyStreak(userId, goal!!.weeklyCount ?: 1)
@@ -39,6 +43,7 @@ class StreakService(
             currentStreak = response.currentStreak,
             longestStreak = response.longestStreak,
             currentPeriodAchieved = response.currentPeriodAchieved,
+            hasLoggedToday = hasLoggedToday,
         )
     }
 
