@@ -54,6 +54,25 @@ class WorkoutLogControllerTest {
     }
 
     @Test
+    fun `getWorkoutLogs prefers date over deprecated logDate`() {
+        val principal = UserPrincipal(id = 42, socialProvider = SocialProvider.GOOGLE)
+        val expectedDate = LocalDate.of(2026, 5, 31)
+
+        `when`(workoutLogService.getWorkoutLogs(principal.id, expectedDate)).thenReturn(emptyList())
+
+        mockMvc.get("/workout-logs") {
+            param("date", "2026-05-31")
+            param("logDate", "2026-05-30")
+            with(authentication(UsernamePasswordAuthenticationToken(principal, "n/a", AuthorityUtils.NO_AUTHORITIES)))
+        }.andExpect {
+            status { isOk() }
+            content { contentType(MediaType.APPLICATION_JSON) }
+        }
+
+        verify(workoutLogService).getWorkoutLogs(principal.id, expectedDate)
+    }
+
+    @Test
     fun `getWorkoutLogs uses today when date is omitted`() {
         val principal = UserPrincipal(id = 42, socialProvider = SocialProvider.GOOGLE)
         val zoneId = ZoneId.of("Asia/Seoul")

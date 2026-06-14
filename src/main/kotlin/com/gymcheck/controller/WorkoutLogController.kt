@@ -71,7 +71,7 @@ class WorkoutLogController(
         @Parameter(description = "조회 날짜 (yyyy-MM-dd, 미입력 시 오늘)")
         @RequestParam(name = "date", required = false) date: LocalDate?,
     ): List<WorkoutLogResponse> {
-        val resolvedLogDate = logDate ?: date ?: LocalDate.now(clock)
+        val resolvedLogDate = date ?: logDate ?: LocalDate.now(clock)
         return workoutLogService.getWorkoutLogs(user.id, resolvedLogDate)
     }
 
