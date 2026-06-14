@@ -5,6 +5,8 @@ import com.gymcheck.exception.ApiErrorResponse
 import com.gymcheck.exception.ErrorCode
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import java.nio.charset.StandardCharsets
+import org.springframework.http.MediaType
 import org.springframework.security.core.AuthenticationException
 import org.springframework.security.web.AuthenticationEntryPoint
 
@@ -17,7 +19,8 @@ class JwtAuthenticationEntryPoint(
         authException: AuthenticationException,
     ) {
         response.status = ErrorCode.UNAUTHORIZED.status.value()
-        response.contentType = "application/json"
+        response.contentType = MediaType.APPLICATION_JSON_VALUE
+        response.characterEncoding = StandardCharsets.UTF_8.name()
         response.writer.write(
             objectMapper.writeValueAsString(
                 ApiErrorResponse(
