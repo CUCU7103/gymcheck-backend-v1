@@ -1,5 +1,4 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import org.gradle.jvm.toolchain.JavaLanguageVersion
 
 plugins {
     id("org.springframework.boot") version "3.3.13"
@@ -13,13 +12,8 @@ group = "com.gymcheck"
 version = "0.0.1-SNAPSHOT"
 
 java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
-    }
-}
-
-kotlin {
-    jvmToolchain(21)
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 repositories {
@@ -45,6 +39,10 @@ dependencies {
     testImplementation("org.wiremock:wiremock-standalone:3.13.2")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
+}
+
+tasks.bootJar {
+    archiveBaseName.set("gymcheck")
 }
 
 tasks.withType<KotlinCompile>().configureEach {
