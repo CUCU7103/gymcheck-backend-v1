@@ -5,6 +5,13 @@ spring:
   jpa:
     show-sql: false
 
+# Railway PostgreSQL 플러그인은 PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD 환경변수를 자동 주입한다.
+# application.yml의 datasource.url이 이 변수들을 참조한다.
+
+# Firebase 미사용 — 관련 Bean(FirebaseConfig, FcmService, NotificationScheduler) 자동 비활성화
+firebase:
+  enabled: false
+
 logging:
   level:
     root: INFO

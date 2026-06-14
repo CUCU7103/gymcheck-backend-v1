@@ -9,9 +9,11 @@ spring:
     locations: classpath:db/migration
     validate-on-migrate: true
   datasource:
-    url: jdbc:postgresql://localhost:5432/gymcheck
-    username: ${DB_USERNAME:gymcheck}
-    password: ${DB_PASSWORD:gymcheck}
+    # Railway PostgreSQL 플러그인은 PG* 개별 변수를 자동 주입한다.
+    # 로컬에서는 기본값(localhost/gymcheck)으로 동작한다.
+    url: jdbc:postgresql://${PGHOST:localhost}:${PGPORT:5432}/${PGDATABASE:gymcheck}
+    username: ${PGUSER:gymcheck}
+    password: ${PGPASSWORD:gymcheck}
     driver-class-name: org.postgresql.Driver
   jpa:
     open-in-view: false
